@@ -34,7 +34,7 @@ fn rewrite_image_path(md: &str, original: &str, replacement: &str) -> String {
     result
 }
 
-fn clean_markdown(md: &str) -> String {
+pub fn clean_markdown(md: &str) -> String {
     let mut result = md.to_string();
 
     // Collapse 3+ consecutive blank lines to 2

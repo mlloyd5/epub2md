@@ -2,9 +2,9 @@
 name = "epub2md"
 version = "0.1.0"
 edition = "2021"
-description = "Convert EPUB ebooks to clean Markdown for LLM and agentic consumption"
+description = "Convert EPUB and DOCX documents to clean Markdown for LLM and agentic consumption"
 license = "MIT"
-keywords = ["epub", "markdown", "converter", "ebook"]
+keywords = ["epub", "docx", "markdown", "converter", "ebook"]
 categories = ["command-line-utilities", "text-processing"]
 
 [dependencies]
@@ -12,3 +12,4 @@ rbook = "0.6"
 html2md = "0.2"
 clap = { version = "4", features = ["derive"] }
 anyhow = "1"
+docx-rust = "0.1"

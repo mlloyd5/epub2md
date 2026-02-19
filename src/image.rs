@@ -1,15 +1,15 @@
-use crate::epub_reader::EpubData;
+use crate::reader::BookReader;
 use anyhow::Result;
 use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
 
-/// Maps original EPUB image hrefs to their new relative paths in output
+/// Maps original image hrefs to their new relative paths in output
 pub type ImageMap = HashMap<String, String>;
 
-pub fn extract_images(epub: &EpubData, output_dir: &Path) -> Result<ImageMap> {
+pub fn extract_images(reader: &dyn BookReader, output_dir: &Path) -> Result<ImageMap> {
     let images_dir = output_dir.join("images");
-    let images = epub.images()?;
+    let images = reader.images()?;
 
     if images.is_empty() {
         return Ok(ImageMap::new());
