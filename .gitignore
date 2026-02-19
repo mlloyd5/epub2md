@@ -1,1 +1,21 @@
+# Build artifacts
 /target
+debug/
+*.pdb
+
+# Cargo
+Cargo.lock
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Claude Code worktrees
+.claude/worktrees/

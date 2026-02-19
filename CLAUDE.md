@@ -32,7 +32,7 @@ Both `EpubData` and `DocxData` implement this trait.
 1. Open EPUB via `rbook` with lenient parsing (`strict(false)`)
 2. Extract metadata (title, author, publisher, language, description)
 3. Extract images to `images/` dir, build original-path-to-new-path mapping
-4. Convert each chapter's HTML to Markdown via `html2md::parse_html()`
+4. Convert each chapter's HTML to Markdown via `html2md::rewrite_html()` (fast_html2md)
 5. Post-process: rewrite image paths, collapse blank lines, trim whitespace
 6. Write output in folder mode (per-chapter .md files + README) or single-file mode
 
@@ -56,7 +56,7 @@ Both `EpubData` and `DocxData` implement this trait.
 | Crate | License | Purpose |
 |-------|---------|---------|
 | `rbook` | Apache-2.0 | EPUB 2/3 parsing |
-| `html2md` | MIT | HTML to Markdown conversion |
+| `fast_html2md` | MIT | HTML to Markdown conversion (via lol_html) |
 | `docx-rust` | MIT | DOCX (OOXML) parsing |
 | `clap` | MIT/Apache-2.0 | CLI argument parsing |
 | `anyhow` | MIT/Apache-2.0 | Error handling |

@@ -1,7 +1,7 @@
 use crate::image::ImageMap;
 
 pub fn html_to_markdown(html: &str, image_map: &ImageMap) -> String {
-    let mut md = html2md::parse_html(html);
+    let mut md = html2md::rewrite_html(html, true);
 
     // Rewrite image paths from EPUB-internal paths to extracted paths
     for (original, replacement) in image_map {
