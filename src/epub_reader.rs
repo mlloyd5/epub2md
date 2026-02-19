@@ -1,3 +1,6 @@
+use crate::image::ImageMap;
+use crate::markdown;
+use crate::reader::{BookReader, Chapter, ImageResource, Metadata};
 use anyhow::{Context, Result};
 use rbook::prelude::*;
 use rbook::Epub;
@@ -5,16 +8,6 @@ use std::path::Path;
 
 pub struct EpubData {
     epub: Epub,
-}
-
-pub struct Chapter {
-    pub title: Option<String>,
-    pub html_content: String,
-}
-
-pub struct ImageResource {
-    pub original_href: String,
-    pub data: Vec<u8>,
 }
 
 impl EpubData {
@@ -26,7 +19,7 @@ impl EpubData {
         Ok(Self { epub })
     }
 
-    pub fn chapters(&self) -> Result<Vec<Chapter>> {
+    fn raw_chapters(&self) -> Result<Vec<RawChapter>> {
         let mut chapters = Vec::new();
         let mut reader = self.epub.reader();
 
@@ -39,7 +32,7 @@ impl EpubData {
                 continue;
             }
 
-            chapters.push(Chapter {
+            chapters.push(RawChapter {
                 title: None,
                 html_content,
             });
@@ -48,10 +41,32 @@ impl EpubData {
         Ok(chapters)
     }
 
-    pub fn images(&self) -> Result<Vec<ImageResource>> {
+    /// Convert raw HTML chapters to markdown with image path rewriting
+    pub fn convert_chapters(&self, image_map: &ImageMap) -> Result<Vec<Chapter>> {
+        let raw = self.raw_chapters()?;
+        let mut chapters = Vec::new();
+
+        for raw_ch in &raw {
+            let md_content = markdown::html_to_markdown(&raw_ch.html_content, image_map);
+            chapters.push(Chapter {
+                title: raw_ch.title.clone(),
+                content: md_content,
+            });
+        }
+
+        Ok(chapters)
+    }
+}
+
+impl BookReader for EpubData {
+    fn chapters(&self) -> Result<Vec<Chapter>> {
+        // When called without an image map, use an empty one
+        self.convert_chapters(&ImageMap::new())
+    }
+
+    fn images(&self) -> Result<Vec<ImageResource>> {
         let mut images = Vec::new();
         for entry in self.epub.manifest().images() {
-            // Get the resource path from the manifest entry
             let href = entry
                 .resource()
                 .key()
@@ -72,33 +87,29 @@ impl EpubData {
         Ok(images)
     }
 
-    pub fn title(&self) -> Option<String> {
-        self.epub
-            .metadata()
-            .title()
-            .map(|t| t.value().to_string())
-    }
-
-    pub fn authors(&self) -> Vec<String> {
-        let mut authors = Vec::new();
-        for creator in self.epub.metadata().creators() {
-            authors.push(creator.value().to_string());
+    fn metadata(&self) -> Metadata {
+        use rbook::prelude::Metadata as RbookMetadata;
+        let meta = self.epub.metadata();
+        Metadata {
+            title: RbookMetadata::title(&meta).map(|t| t.value().to_string()),
+            authors: RbookMetadata::creators(&meta)
+                .map(|c| c.value().to_string())
+                .collect(),
+            publisher: RbookMetadata::publishers(&meta)
+                .next()
+                .map(|p| p.value().to_string()),
+            language: RbookMetadata::languages(&meta)
+                .next()
+                .map(|l| l.value().to_string()),
+            description: RbookMetadata::descriptions(&meta)
+                .next()
+                .map(|d| d.value().to_string()),
         }
-        authors
     }
+}
 
-    pub fn language(&self) -> Option<String> {
-        let mut langs = self.epub.metadata().languages();
-        langs.next().map(|l| l.value().to_string())
-    }
-
-    pub fn description(&self) -> Option<String> {
-        let mut descs = self.epub.metadata().descriptions();
-        descs.next().map(|d| d.value().to_string())
-    }
-
-    pub fn publisher(&self) -> Option<String> {
-        let mut pubs = self.epub.metadata().publishers();
-        pubs.next().map(|p| p.value().to_string())
-    }
+/// Internal raw chapter before markdown conversion
+struct RawChapter {
+    title: Option<String>,
+    html_content: String,
 }

@@ -1,6 +1,6 @@
 # epub2md
 
-Convert EPUB ebooks to clean Markdown files suitable for LLM and agentic consumption.
+Convert EPUB and DOCX documents to clean Markdown files suitable for LLM and agentic consumption.
 
 ## Installation
 
@@ -17,11 +17,14 @@ The binary will be at `target/release/epub2md`.
 ## Usage
 
 ```bash
-# Convert to a directory of chapter files (default)
+# Convert EPUB to a directory of chapter files (default)
 epub2md book.epub
 
-# Convert to a single markdown file
+# Convert EPUB to a single markdown file
 epub2md book.epub --single
+
+# Convert DOCX to markdown
+epub2md document.docx --single
 
 # Specify output location
 epub2md book.epub -o ./output/
@@ -29,6 +32,13 @@ epub2md book.epub -o ./output/
 # Skip image extraction
 epub2md book.epub --no-images
 ```
+
+### Supported Formats
+
+| Format | Extension | Features |
+|--------|-----------|----------|
+| EPUB | `.epub` | Chapters, images, metadata, EPUB 2/3 |
+| DOCX | `.docx` | Headings, lists, tables, images, links, bold/italic/strikethrough, metadata |
 
 ## Output Formats
 
@@ -62,6 +72,7 @@ images/
 
 - [rbook](https://crates.io/crates/rbook) (Apache-2.0) - EPUB 2/3 parsing
 - [html2md](https://crates.io/crates/html2md) (MIT) - HTML to Markdown conversion
+- [docx-rust](https://crates.io/crates/docx-rust) (MIT) - DOCX (OOXML) parsing
 - [clap](https://crates.io/crates/clap) - CLI argument parsing
 - [anyhow](https://crates.io/crates/anyhow) - Error handling
 

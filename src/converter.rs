@@ -1,9 +1,10 @@
 use crate::cli::Cli;
+use crate::docx_reader::DocxData;
 use crate::epub_reader::EpubData;
 use crate::image::{self, ImageMap};
-use crate::markdown;
 use crate::metadata;
-use anyhow::{Context, Result};
+use crate::reader::{BookReader, Chapter};
+use anyhow::{bail, Context, Result};
 use std::fs;
 use std::path::PathBuf;
 
@@ -14,9 +15,13 @@ struct ConvertedChapter {
 }
 
 pub fn convert(cli: &Cli) -> Result<()> {
-    let epub = EpubData::open(&cli.input)?;
+    let ext = cli
+        .input
+        .extension()
+        .map(|e| e.to_string_lossy().to_lowercase())
+        .unwrap_or_default();
+
     let output_path = resolve_output_path(cli)?;
-    let metadata_header = metadata::format_metadata(&epub);
 
     // Resolve the images output dir:
     // - Folder mode: images go inside the output directory
@@ -30,27 +35,71 @@ pub fn convert(cli: &Cli) -> Result<()> {
         output_path.clone()
     };
 
+    // Dispatch based on file extension
+    match ext.as_str() {
+        "epub" => convert_epub(cli, &output_path, &images_base),
+        "docx" => convert_docx(cli, &output_path, &images_base),
+        _ => bail!(
+            "Unsupported file format: .{}. Supported formats: .epub, .docx",
+            ext
+        ),
+    }
+}
+
+fn convert_epub(cli: &Cli, output_path: &PathBuf, images_base: &PathBuf) -> Result<()> {
+    let epub = EpubData::open(&cli.input)?;
+    let meta = epub.metadata();
+    let metadata_header = metadata::format_metadata(&meta);
+
     // Extract images unless --no-images
     let image_map = if !cli.no_images {
-        // Ensure the base dir exists before extracting images
-        fs::create_dir_all(&images_base)?;
-        image::extract_images(&epub, &images_base)?
+        fs::create_dir_all(images_base)?;
+        image::extract_images(&epub, images_base)?
     } else {
         ImageMap::new()
     };
 
-    // Convert chapters
-    let raw_chapters = epub.chapters()?;
+    // EPUB needs image map for path rewriting during html→md conversion
+    let chapters = epub.convert_chapters(&image_map)?;
+
+    let converted = build_converted_chapters(&chapters)?;
+    write_output(cli, output_path, &metadata_header, &converted)?;
+    print_summary(&converted, &image_map, output_path);
+
+    Ok(())
+}
+
+fn convert_docx(cli: &Cli, output_path: &PathBuf, images_base: &PathBuf) -> Result<()> {
+    let docx = DocxData::open(&cli.input)?;
+    let meta = docx.metadata();
+    let metadata_header = metadata::format_metadata(&meta);
+
+    // Extract images unless --no-images
+    let image_map = if !cli.no_images {
+        fs::create_dir_all(images_base)?;
+        image::extract_images(&docx, images_base)?
+    } else {
+        ImageMap::new()
+    };
+
+    // DOCX chapters already have image paths set during conversion
+    let chapters = docx.chapters()?;
+
+    let converted = build_converted_chapters(&chapters)?;
+    write_output(cli, output_path, &metadata_header, &converted)?;
+    print_summary(&converted, &image_map, output_path);
+
+    Ok(())
+}
+
+fn build_converted_chapters(chapters: &[Chapter]) -> Result<Vec<ConvertedChapter>> {
     let mut converted = Vec::new();
 
-    for (i, chapter) in raw_chapters.iter().enumerate() {
-        let md_content = markdown::html_to_markdown(&chapter.html_content, &image_map);
-
-        // Try to extract title from the converted markdown (first # heading)
+    for (i, chapter) in chapters.iter().enumerate() {
         let title = chapter
             .title
             .clone()
-            .or_else(|| extract_title_from_markdown(&md_content))
+            .or_else(|| extract_title_from_markdown(&chapter.content))
             .unwrap_or_else(|| format!("Chapter {}", i + 1));
 
         let filename = format!("chapter-{:02}.md", i + 1);
@@ -58,30 +107,41 @@ pub fn convert(cli: &Cli) -> Result<()> {
         converted.push(ConvertedChapter {
             title,
             filename,
-            content: md_content,
+            content: chapter.content.clone(),
         });
     }
 
-    if cli.single {
-        write_single_file(&output_path, &metadata_header, &converted)?;
-    } else {
-        write_folder(&output_path, &metadata_header, &converted)?;
-    }
+    Ok(converted)
+}
 
+fn write_output(
+    cli: &Cli,
+    output_path: &PathBuf,
+    metadata_header: &str,
+    converted: &[ConvertedChapter],
+) -> Result<()> {
+    if cli.single {
+        write_single_file(output_path, metadata_header, converted)?;
+    } else {
+        write_folder(output_path, metadata_header, converted)?;
+    }
+    Ok(())
+}
+
+fn print_summary(converted: &[ConvertedChapter], image_map: &ImageMap, output_path: &PathBuf) {
     let chapter_count = converted.len();
     let image_count = image_map.len();
     eprintln!(
-        "Converted {} chapters{} to {}",
+        "Converted {} chapter{}{} to {}",
         chapter_count,
+        if chapter_count == 1 { "" } else { "s" },
         if image_count > 0 {
-            format!(" and {} images", image_count)
+            format!(" and {} image{}", image_count, if image_count == 1 { "" } else { "s" })
         } else {
             String::new()
         },
         output_path.display()
     );
-
-    Ok(())
 }
 
 fn resolve_output_path(cli: &Cli) -> Result<PathBuf> {

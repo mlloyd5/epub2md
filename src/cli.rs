@@ -1,15 +1,15 @@
 use clap::Parser;
 use std::path::PathBuf;
 
-/// Convert EPUB ebooks to clean Markdown
+/// Convert EPUB and DOCX documents to clean Markdown
 #[derive(Parser, Debug)]
 #[command(name = "epub2md", version, about)]
 pub struct Cli {
-    /// Path to the input EPUB file
+    /// Path to the input file (.epub or .docx)
     pub input: PathBuf,
 
     /// Output path (directory for folder mode, file for single-file mode).
-    /// Defaults to a directory or file named after the EPUB in the current directory.
+    /// Defaults to a directory or file named after the input in the current directory.
     #[arg(short, long)]
     pub output: Option<PathBuf>,
 
